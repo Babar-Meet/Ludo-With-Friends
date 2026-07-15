@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/game_setup_dialog.dart';
 import '../models/player.dart';
 import 'game_screen.dart';
+import 'meme_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -47,36 +48,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 60),
-                
-                // Play with Random (Bots)
-                _buildMenuButton(
-                  title: 'PLAY WITH RANDOM',
-                  color: Colors.blueAccent,
-                  context: context,
-                  onPressed: () {
-                    List<Player> players = [];
-                    List<Color> colors = [Colors.blue, Colors.red, Colors.green, Colors.yellow];
-                    for (int i = 0; i < 4; i++) {
-                      players.add(Player(
-                        id: i, 
-                        name: i == 0 ? 'You' : 'Bot $i', 
-                        color: colors[i], 
-                        tokenIndex: 4
-                      ));
-                    }
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => GameScreen(
-                          activePlayers: players, 
-                          autoStartBots: true,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 20),
-                
+
                 // Play with Friend (Local Multiplayer Setup)
                 _buildMenuButton(
                   title: 'PLAY WITH FRIEND',
@@ -97,6 +69,22 @@ class HomeScreen extends StatelessWidget {
                         ),
                       );
                     }
+                  },
+                ),
+
+                const SizedBox(height: 20),
+
+                // Multiplayer (troll button)
+                _buildMenuButton(
+                  title: 'MULTIPLAYER',
+                  color: Colors.purple,
+                  context: context,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const MemeScreen(),
+                      ),
+                    );
                   },
                 ),
 

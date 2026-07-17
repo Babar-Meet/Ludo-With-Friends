@@ -94,19 +94,23 @@ class LudoBoardWidget extends StatelessWidget {
         children.add(
           HoppingTokenWidget(
             key: ValueKey('${token.playerId}_${token.id}'),
-            duration: const Duration(milliseconds: 150), // Faster animation
+            duration: const Duration(milliseconds: 150),
             left: cellCenterX + offsetX - cellSize * 0.8,
             top: cellCenterY + offsetY - cellSize * 1.5,
             child: IgnorePointer(
               ignoring: !isMovable,
               child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => onTokenTap?.call(token),
                 child: _MovableTokenWrapper(
                   isMovable: isMovable,
-                  child: PremiumTokenWidget(
-                    color: baseColors[token.playerId]!,
-                    size: cellSize * 1.6,
-                    shapeType: player.tokenIndex - 1,
+                  child: Padding(
+                    padding: EdgeInsets.all(isMovable ? 6.0 : 0),
+                    child: PremiumTokenWidget(
+                      color: baseColors[token.playerId]!,
+                      size: cellSize * 1.6,
+                      shapeType: player.tokenIndex - 1,
+                    ),
                   ),
                 ),
               ),
@@ -136,7 +140,7 @@ class LudoBoardWidget extends StatelessWidget {
     
     double cx = (startCol + 3) * cellSize;
     double cy = (startRow + 3) * cellSize;
-    double offset = 1.25 * cellSize; // distance from center of home base
+    double offset = 1.0 * cellSize; // distance from center of home base
     
     List<Offset> positions = [
       Offset(cx - offset, cy - offset),
@@ -161,13 +165,17 @@ class LudoBoardWidget extends StatelessWidget {
           child: IgnorePointer(
             ignoring: !isMovable,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => onTokenTap?.call(token),
               child: _MovableTokenWrapper(
                 isMovable: isMovable,
-                child: PremiumTokenWidget(
-                  color: player.color,
-                  size: cellSize * 1.6,
-                  shapeType: player.tokenIndex - 1,
+                child: Padding(
+                  padding: EdgeInsets.all(isMovable ? 6.0 : 0),
+                  child: PremiumTokenWidget(
+                    color: player.color,
+                    size: cellSize * 1.6,
+                    shapeType: player.tokenIndex - 1,
+                  ),
                 ),
               ),
             ),
@@ -190,17 +198,17 @@ class LudoBoardPainter extends CustomPainter {
     Paint bgPaint = Paint()..color = Colors.white;
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
     
-    // 1. Draw 4 Homes (6x6 squares)
-    _drawHome(canvas, cs, 0, 9, baseColors[0]!); // BL
-    _drawHome(canvas, cs, 0, 0, baseColors[1]!); // TL
-    _drawHome(canvas, cs, 9, 0, baseColors[2]!); // TR
-    _drawHome(canvas, cs, 9, 9, baseColors[3]!); // BR
-    
-    // 2. Draw colored paths (home stretches)
+    // 1. Draw colored paths (home stretches)
     _drawColoredPath(canvas, cs, 7, 9, 1, 5, baseColors[0]!); // BL (Blue) -> Bottom arm
     _drawColoredPath(canvas, cs, 1, 7, 5, 1, baseColors[1]!); // TL (Red) -> Left arm
     _drawColoredPath(canvas, cs, 7, 1, 1, 5, baseColors[2]!); // TR (Green) -> Top arm
     _drawColoredPath(canvas, cs, 9, 7, 5, 1, baseColors[3]!); // BR (Yellow) -> Right arm
+
+    // 2. Draw Start Cells (colored with player base color exactly like path cells)
+    _drawColoredPath(canvas, cs, 6, 13, 1, 1, baseColors[0]!); // Blue start
+    _drawColoredPath(canvas, cs, 1, 6, 1, 1, baseColors[1]!); // Red start
+    _drawColoredPath(canvas, cs, 8, 1, 1, 1, baseColors[2]!); // Green start
+    _drawColoredPath(canvas, cs, 13, 8, 1, 1, baseColors[3]!); // Yellow start
     
     // 3. Draw Center triangles
     _drawCenter(canvas, cs, size);
@@ -231,7 +239,19 @@ class LudoBoardPainter extends CustomPainter {
       canvas.drawLine(Offset((9 + i) * cs, 6 * cs), Offset((9 + i) * cs, 9 * cs), gridPaint);
     }
     
-    // 5. Draw Openings for Home bases (erases border segment)
+    // 5. Draw Safe Stars (excluding start cells to keep them plain for arrows)
+    _drawStar(canvas, cs, 8, 12); // Bottom arm star (Blue path)
+    _drawStar(canvas, cs, 2, 8);  // Left arm star (Red path)
+    _drawStar(canvas, cs, 6, 2);  // Top arm star (Green path)
+    _drawStar(canvas, cs, 12, 6); // Right arm star (Yellow path)
+
+    // 6. Draw 4 Homes (6x6 squares)
+    _drawHome(canvas, cs, 0, 9, baseColors[0]!); // BL
+    _drawHome(canvas, cs, 0, 0, baseColors[1]!); // TL
+    _drawHome(canvas, cs, 9, 0, baseColors[2]!); // TR
+    _drawHome(canvas, cs, 9, 9, baseColors[3]!); // BR
+
+    // 7. Draw Openings for Home bases (erases border segment)
     try {
       _drawOpening(canvas, cs, 5, 13, baseColors[0]!, 'right');  // BL -> start at (6,13)
       _drawOpening(canvas, cs, 1, 5, baseColors[1]!, 'bottom'); // TL -> start at (1,6)
@@ -240,18 +260,6 @@ class LudoBoardPainter extends CustomPainter {
     } catch (e) {
       debugPrint('Error in _drawOpening: $e');
     }
-    
-    // 6. Draw Safe Stars (excluding start cells to keep them plain for arrows)
-    _drawStar(canvas, cs, 8, 12); // Bottom arm star (Blue path)
-    _drawStar(canvas, cs, 2, 8);  // Left arm star (Red path)
-    _drawStar(canvas, cs, 6, 2);  // Top arm star (Green path)
-    _drawStar(canvas, cs, 12, 6); // Right arm star (Yellow path)
-    
-    // 7. Draw Start Cells (colored with player base color exactly like path cells)
-    _drawColoredPath(canvas, cs, 6, 13, 1, 1, baseColors[0]!); // Blue start
-    _drawColoredPath(canvas, cs, 1, 6, 1, 1, baseColors[1]!); // Red start
-    _drawColoredPath(canvas, cs, 8, 1, 1, 1, baseColors[2]!); // Green start
-    _drawColoredPath(canvas, cs, 13, 8, 1, 1, baseColors[3]!); // Yellow start
   }
 
   void _drawColoredPath(Canvas canvas, double cs, int c, int r, int w, int h, Color color) {
@@ -282,15 +290,9 @@ class LudoBoardPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.3)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
 
-    // Premium base with radial gradient
-    Paint paint = Paint()
-      ..shader = RadialGradient(
-        colors: [Colors.white.withValues(alpha: 0.2), color, Colors.black.withValues(alpha: 0.4)],
-        stops: const [0.0, 0.7, 1.0],
-        center: const Alignment(-0.2, -0.2),
-        radius: 1.0,
-      ).createShader(homeRect);
-    canvas.drawRRect(RRect.fromRectAndRadius(homeRect, const Radius.circular(12)), paint);
+    // Premium base with solid color
+    Paint paint = Paint()..color = color;
+    canvas.drawRect(homeRect, paint);
     
     // Glossy border
     Paint borderPaint = Paint()
@@ -301,7 +303,7 @@ class LudoBoardPainter extends CustomPainter {
       ).createShader(homeRect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
-    canvas.drawRRect(RRect.fromRectAndRadius(homeRect, const Radius.circular(12)), borderPaint);
+    canvas.drawRect(homeRect, borderPaint);
     
     // Draw white inner square with inner shadow effect
     Rect innerRect = Rect.fromLTWH((c + 1) * cs, (r + 1) * cs, 4 * cs, 4 * cs);
@@ -339,7 +341,7 @@ class LudoBoardPainter extends CustomPainter {
     canvas.drawCircle(
       center,
       radius,
-      Paint()..color = color.withValues(alpha: 0.15),
+      Paint()..color = color,
     );
     
     // Glossy rim

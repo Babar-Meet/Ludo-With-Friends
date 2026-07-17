@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
 import '../models/player.dart';
 import '../models/game_state.dart';
 import '../widgets/ludo_board_widget.dart';
@@ -39,7 +38,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   bool isArrangeMode = false; // Dev Test Mode feature
   Set<int> movableTokenIds = {}; // IDs of tokens that can legally move this turn
   int diceValue = 1;
-  int consecutiveSixes = 0;
   bool hasRolledDice = false;
   Map<int, bool> playerAutoRoll = {};
   Map<int, bool> playerAutoMove = {};
@@ -50,6 +48,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   Map<int, String> playerMoveSound = {};
   Map<int, String> playerCaptureSound = {};
   Map<int, String> playerWinSound = {};
+
+  // Ranking State
+  Map<int, int> playerRankings = {};
+  List<int> finishedPlayerIds = [];
 
   @override
   void initState() {
@@ -127,20 +129,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           diceValue = 1; // Fallback
         }
         hasRolledDice = true;
-        
-        if (diceValue == 6) {
-          consecutiveSixes++;
-          if (consecutiveSixes >= 3) {
-            consecutiveSixes = 0;
-            _showToast("Three 6s! Turn Lost 😱");
-            Future.delayed(const Duration(milliseconds: 1500), () {
-              if (mounted) _nextTurn();
-            });
-            return;
-          }
-        } else {
-          consecutiveSixes = 0;
-        }
         
         _checkValidMoves();
       });
@@ -231,6 +219,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     }
     
     if (token.playerId != currentTurnPlayerId) return;
+    if (finishedPlayerIds.contains(token.playerId)) return;
     if (!hasRolledDice || isDiceRolling || isAnimating) return;
     if (!movableTokenIds.contains(token.id)) return;
 
@@ -251,23 +240,31 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           movableTokenIds.clear();
         });
         
+        // Safety: auto-clear isAnimating after 5s if it gets stuck
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted && isAnimating) {
+            setState(() { isAnimating = false; });
+          }
+        });
+
         _animateTokenForward(token, diceValue, () {
           bool extraTurn = diceValue == 6;
 
           if (token.position == 56) {
-            extraTurn = true; // Reach home gets extra turn
             AudioManager.playWin(filename: playerWinSound[token.playerId]);
             setState(() { isAnimating = false; });
             
             if (_checkWinCondition(token.playerId)) {
-              return; // Stop turn logic if game is over
+              // Player won - no extra turn, skip to next player
+              setState(() {
+                hasRolledDice = false;
+              });
+              _nextTurn();
+              return;
             }
 
-            if (!extraTurn) {
-              _nextTurn();
-            } else {
-              _checkAutoRoll();
-            }
+            // Reach home gets extra turn
+            _checkAutoRoll();
           } else {
             // Check for capture
             LudoToken? capturedOpponent = _checkCapture(token);
@@ -362,42 +359,99 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     bool hasWon = pTokens.every((t) => t.isFinished);
     
     if (hasWon) {
+      int rank = playerRankings.length + 1;
+      playerRankings[playerId] = rank;
+      finishedPlayerIds.add(playerId);
       Player p = widget.activePlayers.firstWhere((player) => player.id == playerId);
-      _showWinnerDialog(p);
+
+      List<String> rankLabels = ['1st', '2nd', '3rd', '4th'];
+      _showToast("${p.name} finished ${rankLabels[rank - 1]}!");
+
+      int remaining = widget.activePlayers.length - finishedPlayerIds.length;
+      if (remaining <= 1) {
+        Player? lastPlayer;
+        for (var pl in widget.activePlayers) {
+          if (!finishedPlayerIds.contains(pl.id)) {
+            lastPlayer = pl;
+            break;
+          }
+        }
+        if (lastPlayer != null) {
+          playerRankings[lastPlayer.id] = playerRankings.length + 1;
+          finishedPlayerIds.add(lastPlayer.id);
+        }
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) _showRankingDialog();
+        });
+      }
       return true;
     }
     return false;
   }
 
-  void _showWinnerDialog(Player winner) {
+  void _showRankingDialog() {
+    List<Widget> rankedPlayers = [];
+    List<String> rankLabels = ['1st', '2nd', '3rd', '4th'];
+    List<IconData> rankIcons = [Icons.emoji_events, Icons.emoji_events, Icons.emoji_events, Icons.emoji_events];
+    List<Color> rankColors = [Colors.amber, Colors.grey.shade400, Colors.brown, Colors.grey.shade700];
+
+    for (var player in widget.activePlayers) {
+      int? rank = playerRankings[player.id];
+      if (rank == null) continue;
+      rankedPlayers.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Icon(rankIcons[rank - 1], color: rankColors[rank - 1], size: 36),
+              const SizedBox(width: 12),
+              Text(
+                player.name,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: player.color),
+              ),
+              const Spacer(),
+              Text(
+                rankLabels[rank - 1],
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: rankColors[rank - 1]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
+          title: const Row(
             children: [
-              const Icon(Icons.emoji_events, color: Colors.amber, size: 40),
-              const SizedBox(width: 10),
-              Text('Winner!', style: TextStyle(color: winner.color, fontWeight: FontWeight.bold, fontSize: 28)),
+              Icon(Icons.emoji_events, color: Colors.amber, size: 40),
+              SizedBox(width: 10),
+              Text('Game Over!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28)),
             ],
           ),
-          content: Text(
-            '${winner.name} has moved all their tokens to the center and won the game!',
-            style: const TextStyle(fontSize: 16),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: rankedPlayers,
+            ),
           ),
           actions: [
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: winner.color,
+                backgroundColor: Colors.blue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
                 Navigator.of(context).pop();
+                Navigator.of(context).pop();
               },
-              child: const Text('Keep Playing'),
+              child: const Text('Play Again'),
             )
           ],
         );
@@ -407,19 +461,25 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _nextTurn() {
     setState(() {
-      consecutiveSixes = 0;
       hasRolledDice = false;
       movableTokenIds.clear();
       int currentIndex = widget.activePlayers.indexWhere((p) => p.id == currentTurnPlayerId);
       if (currentIndex != -1) {
-        int nextIndex = (currentIndex + 1) % widget.activePlayers.length;
-        currentTurnPlayerId = widget.activePlayers[nextIndex].id;
+        for (int i = 1; i <= widget.activePlayers.length; i++) {
+          int nextIndex = (currentIndex + i) % widget.activePlayers.length;
+          int nextPlayerId = widget.activePlayers[nextIndex].id;
+          if (!finishedPlayerIds.contains(nextPlayerId)) {
+            currentTurnPlayerId = nextPlayerId;
+            break;
+          }
+        }
       }
       _checkAutoRoll();
     });
   }
 
   void _checkAutoRoll() {
+    if (finishedPlayerIds.contains(currentTurnPlayerId)) return;
     bool isAutoRoll = playerAutoRoll[currentTurnPlayerId] == true || playerBotMode[currentTurnPlayerId] == true;
     if (isAutoRoll && !hasRolledDice && !isDiceRolling && !isAnimating) {
       Future.delayed(const Duration(seconds: 1), () {
@@ -592,101 +652,88 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   Widget _buildPlayerCorner(Player? player, {required bool left}) {
     if (player == null) {
-      return const SizedBox(width: 140, height: 80); // Empty placeholder
+      return const SizedBox(width: 140, height: 80);
     }
     
     bool isTurn = player.id == currentTurnPlayerId;
+    bool isFinished = finishedPlayerIds.contains(player.id);
+    int? rank = playerRankings[player.id];
 
-    // Unified Slim Box (Avatar + Dice)
-    Widget unifiedBox = Container(
-      height: 50,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: isTurn ? Border.all(color: Colors.amber, width: 3) : Border.all(color: Colors.grey.shade400, width: 1),
-        boxShadow: isTurn ? [
-          BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)
-        ] : [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(1, 1))
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7), // slightly less than container to fit inside border
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+    // Dice or Rank Badge
+    Widget diceOrRank;
+    if (isFinished && rank != null) {
+      List<String> rankLabels = ['1st', '2nd', '3rd', '4th'];
+      List<Color> rankColors = [Colors.amber, Colors.grey.shade400, Colors.brown, Colors.grey.shade700];
+      diceOrRank = Container(
+        width: 68, height: 68,
+        decoration: BoxDecoration(
+          color: rankColors[rank - 1],
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: [BoxShadow(color: rankColors[rank - 1].withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Left side: Player color gradient + Avatar
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [player.color, player.color.withValues(alpha: 0.2)],
-                  begin: left ? Alignment.centerLeft : Alignment.centerRight,
-                  end: left ? Alignment.centerRight : Alignment.centerLeft,
-                )
-              ),
-              child: Center(
-                child: SizedBox(
-                  width: 35,
-                  height: 35,
-                  child: PremiumTokenWidget(
-                    color: Colors.white, // High contrast against the colored background
-                    size: 35,
-                    shapeType: player.tokenIndex - 1,
-                  ),
-                ),
-              ),
-            ),
-            // Right side: Dice section (pink gradient)
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.pink.shade50, Colors.pink.shade200],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                )
-              ),
-              child: Center(
-                child: isTurn 
-                  ? DiceWidget(
-                      value: diceValue,
-                      isRolling: isDiceRolling,
-                      onRoll: _rollDice,
-                    )
-                  : Container(
-                      width: 35,
-                      height: 35,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-              ),
-            ),
+            Icon(Icons.emoji_events, color: Colors.white, size: 24),
+            Text(rankLabels[rank - 1], style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-      ),
-    );
+      );
+    } else {
+      diceOrRank = Container(
+        width: 68, height: 68,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFF0F0), Color(0xFFFFB6C1)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          border: isTurn ? Border.all(color: Colors.amber, width: 3) : Border.all(color: Colors.grey.shade400, width: 1),
+          boxShadow: isTurn ? [
+            BoxShadow(color: Colors.amber.withValues(alpha: 0.5), blurRadius: 10, spreadRadius: 2)
+          ] : [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(1, 1))
+          ],
+        ),
+        child: Center(
+          child: isTurn
+            ? DiceWidget(value: diceValue, isRolling: isDiceRolling, onRoll: _rollDice)
+            : Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+        ),
+      );
+    }
 
-    // Bouncing Arrow pointing to the box
-    Widget animatedArrow = isTurn ? AnimatedBuilder(
+    bool canRoll = isTurn && !hasRolledDice && !isDiceRolling && !isAnimating;
+    // Bouncing Arrow pointing at the dice
+    Widget animatedArrow = canRoll ? AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
-        // _glowAnimation goes from 0.2 to 0.8. We map this to a bounce translation of 2 to 8 pixels.
         double offset = _glowAnimation.value * 10;
         return Transform.translate(
           offset: Offset(left ? -offset : offset, 0),
           child: Icon(
             left ? Icons.arrow_left : Icons.arrow_right,
             color: Colors.amber,
-            size: 40,
+            size: 50,
             shadows: const [Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1))],
           ),
         );
       }
-    ) : const SizedBox(width: 40);
+    ) : const SizedBox(width: 50);
+
+    // Dice row with arrow
+    Widget diceRow = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: left ? [diceOrRank, animatedArrow] : [animatedArrow, diceOrRank],
+    );
 
     // Name label
     Widget nameBox = Container(
@@ -702,7 +749,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ),
     );
 
-    // Settings Button to open PlayerSettingsDialog
+    // Settings Button
     Widget settingsButton = IconButton(
       icon: const Icon(Icons.settings, color: Colors.white70, size: 24),
       onPressed: () async {
@@ -725,12 +772,10 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             playerAutoRoll[player.id] = result['autoRoll'];
             playerAutoMove[player.id] = result['autoMove'];
             playerBotMode[player.id] = result['botMode'];
-            
             playerDiceSound[player.id] = result['diceSound'];
             playerMoveSound[player.id] = result['moveSound'];
             playerCaptureSound[player.id] = result['captureSound'];
             playerWinSound[player.id] = result['winSound'];
-            
             _checkAutoRoll();
           });
         }
@@ -739,21 +784,32 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       constraints: const BoxConstraints(),
     );
 
-    Widget topRow = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-      children: [
-        nameBox,
-        const SizedBox(height: 4),
-        settingsButton,
-      ],
+    // Avatar section
+    Widget avatarSection = Container(
+      width: 50, height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [player.color, player.color.withValues(alpha: 0.2)],
+          begin: left ? Alignment.centerLeft : Alignment.centerRight,
+          end: left ? Alignment.centerRight : Alignment.centerLeft,
+        ),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 35, height: 35,
+          child: PremiumTokenWidget(
+            color: Colors.white,
+            size: 35,
+            shapeType: player.tokenIndex - 1,
+          ),
+        ),
+      ),
     );
 
-    Widget contentRow = Row(
+    // Avatar + Settings row
+    Widget avatarRow = Row(
       mainAxisSize: MainAxisSize.min,
-      children: left 
-          ? [unifiedBox, animatedArrow] 
-          : [animatedArrow, unifiedBox],
+      children: left ? [avatarSection, settingsButton] : [settingsButton, avatarSection],
     );
 
     bool isTopPlayer = player.id == 1 || player.id == 2;
@@ -762,9 +818,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
       children: [
-        topRow,
+        diceRow,
         const SizedBox(height: 4),
-        contentRow,
+        nameBox,
+        const SizedBox(height: 4),
+        avatarRow,
       ],
     );
 

@@ -39,7 +39,8 @@ class GameState {
   // Helper to get exact coordinate for a token
   static Offset? getCoordinate(int playerIndex, int position) {
     if (position < 0) return null; // Inside base home
-    if (position >= 56) return null; // Finished
+    if (position > 56) return null;
+    if (position == 56) return homePaths[playerIndex][4];
     
     if (position < 51) {
       // Outer path

@@ -104,12 +104,41 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    double size = 32.0; 
-    
-    double hop = sin(_animation.value * pi) * 15.0;
-    
-    double rx = widget.isRolling ? _getCurrentX() : _getTargetX(_targetValue);
-    double ry = widget.isRolling ? _getCurrentY() : _getTargetY(_targetValue);
+    double size = 52.0;
+    double containerSize = 68.0;
+
+    if (!widget.isRolling) {
+      return GestureDetector(
+        onTap: widget.onRoll,
+        child: Container(
+          width: containerSize,
+          height: containerSize,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300, width: 1),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 4, offset: const Offset(1, 1)),
+                ],
+              ),
+              child: CustomPaint(
+                painter: _DicePainter(_targetValue),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    double hop = sin(_animation.value * pi) * 24.0;
+
+    double rx = _getCurrentX();
+    double ry = _getCurrentY();
 
     List<_FaceDef> faces = [
       _FaceDef(6, 0.0, 0.0, -size / 2, Matrix4.identity()..translate(0.0, 0.0, -size / 2)..rotateY(pi)),
@@ -124,29 +153,28 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
       double zp = f.y * sin(rx) + f.z * cos(rx);
       f.transformedZ = -f.x * sin(ry) + zp * cos(ry);
     }
-    
-    // Sort by transformed Z ascending (lowest Z drawn first, highest Z drawn last on top)
+
     faces.sort((a, b) => a.transformedZ.compareTo(b.transformedZ));
 
     List<Widget> faceWidgets = faces.map((f) => _buildFace(f.value, size, f.transform)).toList();
 
     return GestureDetector(
-      onTap: widget.isRolling ? null : widget.onRoll,
+      onTap: null,
       child: Container(
-        width: 50,
-        height: 50,
-        color: Colors.transparent, 
+        width: containerSize,
+        height: containerSize,
+        color: Colors.transparent,
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
           children: [
             Transform.translate(
-              offset: const Offset(0, 15),
+              offset: const Offset(0, 22),
               child: Transform.scale(
                 scale: 1.0 - (sin(_animation.value * pi) * 0.5),
                 child: Container(
-                  width: size * 0.8,
-                  height: size * 0.2,
+                  width: size * 0.7,
+                  height: size * 0.15,
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(100),
@@ -157,13 +185,13 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
                 ),
               ),
             ),
-            
+
             Transform.translate(
               offset: Offset(0, -hop),
               child: Transform(
                 alignment: Alignment.center,
                 transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.002) 
+                  ..setEntry(3, 2, 0.002)
                   ..rotateX(rx)
                   ..rotateY(ry),
                 child: SizedBox(
@@ -190,7 +218,7 @@ class _DiceWidgetState extends State<DiceWidget> with SingleTickerProviderStateM
         height: size,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade300, width: 1),
         ),
         child: CustomPaint(
@@ -208,7 +236,7 @@ class _DicePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     Paint paint = Paint()..color = Colors.black;
-    double r = size.width * 0.1; 
+    double r = size.width * 0.09; 
     double cx = size.width / 2;
     double cy = size.height / 2;
     double offset = size.width * 0.25;

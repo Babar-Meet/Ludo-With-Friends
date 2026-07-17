@@ -264,21 +264,9 @@ class LudoBoardPainter extends CustomPainter {
 
   void _drawColoredPath(Canvas canvas, double cs, int c, int r, int w, int h, Color color) {
     Rect rect = Rect.fromLTWH(c * cs, r * cs, w * cs, h * cs);
-    // Draw 3D gradient path
-    Paint paint = Paint()
-      ..shader = LinearGradient(
-        colors: [color.withValues(alpha: 0.8), color, color.withValues(alpha: 0.6)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(rect);
+    // Draw solid color path
+    Paint paint = Paint()..color = color;
     canvas.drawRect(rect, paint);
-    
-    // Add inner shadow/highlight effect
-    Paint highlight = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawRect(rect.deflate(1), highlight);
   }
 
   void _drawHome(Canvas canvas, double cs, int c, int r, Color color) {

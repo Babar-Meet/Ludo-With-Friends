@@ -39,14 +39,14 @@ class _MemeScreenState extends State<MemeScreen>
     Timer.periodic(const Duration(milliseconds: 70), (timer) {
       if (_visibleChars >= _text.length) {
         timer.cancel();
-        // Give user time to read the text
-        Future.delayed(const Duration(milliseconds: 1500), () {
+        // Give user a brief time to read before moving up
+        Future.delayed(const Duration(milliseconds: 400), () {
           if (!mounted) return;
-          // 1. Expand the space (slides text up)
+          // 1. Expand the space (slides text up) faster
           setState(() => _showVideoSpace = true);
           
           // 2. Wait for slide to finish, then fade in and play video
-          Future.delayed(const Duration(milliseconds: 800), () {
+          Future.delayed(const Duration(milliseconds: 400), () {
             if (!mounted) return;
             setState(() => _showVideo = true);
             _fadeController.forward();
@@ -78,23 +78,26 @@ class _MemeScreenState extends State<MemeScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade600,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))
-                    ],
+              if (_showVideo)
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade600,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: const Text(
+                      '✕ Close',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  child: const Text(
-                    '✕ Close',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+                )
+              else
+                const SizedBox(height: 38), // placeholder to prevent layout jump when close button appears
               const SizedBox(height: 80),
               Text(
                 _text.substring(0, _visibleChars),
@@ -103,7 +106,7 @@ class _MemeScreenState extends State<MemeScreen>
               ),
               const SizedBox(height: 30),
               AnimatedSize(
-                duration: const Duration(milliseconds: 800),
+                duration: const Duration(milliseconds: 400),
                 curve: Curves.easeInOutCubic,
                 child: _showVideoSpace 
                   ? SizedBox(

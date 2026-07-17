@@ -36,10 +36,12 @@ class LudoBoardWidget extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         try {
-          return CustomPaint(
-            size: Size(constraints.maxWidth, constraints.maxHeight),
-            painter: LudoBoardPainter(baseColors: baseColors),
-            child: _buildTokensOverlay(constraints.maxWidth, baseColors),
+          return RepaintBoundary(
+            child: CustomPaint(
+              size: Size(constraints.maxWidth, constraints.maxHeight),
+              painter: LudoBoardPainter(baseColors: baseColors),
+              child: _buildTokensOverlay(constraints.maxWidth, baseColors),
+            ),
           );
         } catch (e, stack) {
           debugPrint('ERROR inside LudoBoardWidget: $e\n$stack');
@@ -94,6 +96,7 @@ class LudoBoardWidget extends StatelessWidget {
         children.add(
           HoppingTokenWidget(
             key: ValueKey('${token.playerId}_${token.id}'),
+            cellSize: cellSize,
             duration: const Duration(milliseconds: 150),
             left: cellCenterX + offsetX - cellSize * 0.8,
             top: cellCenterY + offsetY - cellSize * 1.5,
@@ -102,14 +105,16 @@ class LudoBoardWidget extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => onTokenTap?.call(token),
-                child: _MovableTokenWrapper(
-                  isMovable: isMovable,
-                  child: Padding(
-                    padding: EdgeInsets.all(isMovable ? 6.0 : 0),
-                    child: PremiumTokenWidget(
-                      color: baseColors[token.playerId]!,
-                      size: cellSize * 1.6,
-                      shapeType: player.tokenIndex - 1,
+                child: RepaintBoundary(
+                  child: _MovableTokenWrapper(
+                    isMovable: isMovable,
+                    child: Padding(
+                      padding: EdgeInsets.all(isMovable ? 6.0 : 0),
+                      child: PremiumTokenWidget(
+                        color: baseColors[token.playerId]!,
+                        size: cellSize * 1.6,
+                        shapeType: player.tokenIndex - 1,
+                      ),
                     ),
                   ),
                 ),
@@ -159,6 +164,7 @@ class LudoBoardWidget extends StatelessWidget {
       widgets.add(
         HoppingTokenWidget(
           key: ValueKey('${token.playerId}_${token.id}'),
+          cellSize: cellSize,
           duration: const Duration(milliseconds: 150),
           left: pos.dx - cellSize * 0.8,
           top: pos.dy - cellSize * 1.5,
@@ -167,14 +173,16 @@ class LudoBoardWidget extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => onTokenTap?.call(token),
-              child: _MovableTokenWrapper(
-                isMovable: isMovable,
-                child: Padding(
-                  padding: EdgeInsets.all(isMovable ? 6.0 : 0),
-                  child: PremiumTokenWidget(
-                    color: player.color,
-                    size: cellSize * 1.6,
-                    shapeType: player.tokenIndex - 1,
+              child: RepaintBoundary(
+                child: _MovableTokenWrapper(
+                  isMovable: isMovable,
+                  child: Padding(
+                    padding: EdgeInsets.all(isMovable ? 6.0 : 0),
+                    child: PremiumTokenWidget(
+                      color: player.color,
+                      size: cellSize * 1.6,
+                      shapeType: player.tokenIndex - 1,
+                    ),
                   ),
                 ),
               ),
@@ -423,7 +431,12 @@ class LudoBoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant LudoBoardPainter oldDelegate) {
+    for (var key in baseColors.keys) {
+      if (baseColors[key] != oldDelegate.baseColors[key]) return true;
+    }
+    return false;
+  }
 }
 
 class _MovableTokenWrapper extends StatefulWidget {

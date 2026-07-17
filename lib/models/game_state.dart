@@ -53,6 +53,26 @@ class GameState {
       return homePaths[playerIndex][homeIndex];
     }
   }
+
+  static Offset getExactCoordinate(int playerIndex, int position, int tokenId) {
+    if (position >= 0) return getCoordinate(playerIndex, position)!;
+    
+    int startCol = 0, startRow = 0;
+    if (playerIndex == 0) { startCol = 0; startRow = 9; }
+    else if (playerIndex == 1) { startCol = 0; startRow = 0; }
+    else if (playerIndex == 2) { startCol = 9; startRow = 0; }
+    else if (playerIndex == 3) { startCol = 9; startRow = 9; }
+    
+    double cx = startCol + 3.0;
+    double cy = startRow + 3.0;
+    double offset = 1.0;
+    
+    if (tokenId == 0) return Offset(cx - offset, cy - offset);
+    if (tokenId == 1) return Offset(cx + offset, cy - offset);
+    if (tokenId == 2) return Offset(cx - offset, cy + offset);
+    if (tokenId == 3) return Offset(cx + offset, cy + offset);
+    return Offset(cx, cy);
+  }
 }
 
 class LudoToken {

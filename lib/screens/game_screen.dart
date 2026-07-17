@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../models/player.dart';
 import '../models/game_state.dart';
 import '../widgets/ludo_board_widget.dart';
@@ -26,7 +27,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
+class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   int currentTurnPlayerId = 0;
   late AnimationController _glowController;
   late Animation<double> _glowAnimation;
@@ -225,11 +226,19 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     if (token.isHome) {
       if (diceValue == 6) {
+        int flyDuration = _calculateFlyDuration(token, 0);
         setState(() {
+          isAnimating = true;
           token.position = 0;
           hasRolledDice = false;
           movableTokenIds.clear();
-          _checkAutoRoll(); // Extra turn for rolling a 6
+        });
+        
+        Future.delayed(Duration(milliseconds: flyDuration), () {
+          if (mounted) {
+            setState(() { isAnimating = false; });
+            _checkAutoRoll(); // Extra turn for rolling a 6
+          }
         });
       }
     } else if (!token.isFinished) {
@@ -272,10 +281,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               extraTurn = true;
               AudioManager.playCapture(filename: playerCaptureSound[currentTurnPlayerId]);
               
+              int flyDuration = _calculateFlyDuration(capturedOpponent, -1);
               setState(() {
                 capturedOpponent.position = -1;
               });
-              Future.delayed(const Duration(milliseconds: 800), () { // wait for flying animation
+              Future.delayed(Duration(milliseconds: flyDuration), () { // wait for flying animation
                 if (mounted) {
                   setState(() { isAnimating = false; });
                   _checkAutoRoll();
@@ -294,6 +304,20 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       }
     }
   }
+  
+  int _calculateFlyDuration(LudoToken token, int targetPosition) {
+    Offset start = GameState.getExactCoordinate(token.playerId, token.position, token.id);
+    Offset end = GameState.getExactCoordinate(token.playerId, targetPosition, token.id);
+    
+    double dx = end.dx - start.dx;
+    double dy = end.dy - start.dy;
+    double distInCells = math.sqrt(dx * dx + dy * dy);
+    
+    if (distInCells > 1.5) {
+      return (distInCells * 150).round().clamp(400, 2000);
+    }
+    return 150;
+  }
 
   void _animateTokenForward(LudoToken token, int steps, VoidCallback onComplete) {
     if (steps <= 0 || token.position >= 56) {
@@ -303,12 +327,38 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     AudioManager.playMove(filename: playerMoveSound[token.playerId]);
     
-    setState(() {
-      token.position += 1;
+    int startPos = token.position;
+    int endPos = startPos + steps;
+    if (endPos > 56) endPos = 56;
+    int actualSteps = endPos - startPos;
+    
+    AnimationController moveController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 150 * actualSteps),
+    );
+    
+    moveController.addListener(() {
+      int newPos = startPos + (moveController.value * actualSteps).floor();
+      if (newPos != token.position && newPos <= endPos) {
+        setState(() {
+          token.position = newPos;
+        });
+      }
     });
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (mounted) _animateTokenForward(token, steps - 1, onComplete);
+    
+    moveController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        moveController.dispose();
+        if (token.position != endPos) {
+          setState(() {
+            token.position = endPos;
+          });
+        }
+        onComplete();
+      }
     });
+    
+    moveController.forward();
   }
 
   void _animateTokenReverse(LudoToken token, int steps, VoidCallback onComplete) {
@@ -319,12 +369,38 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     
     AudioManager.playMove(filename: playerMoveSound[token.playerId]); // Ticking sound backwards too!
     
-    setState(() {
-      token.position -= 1;
+    int startPos = token.position;
+    int endPos = startPos - steps;
+    if (endPos < -1) endPos = -1;
+    int actualSteps = startPos - endPos;
+    
+    AnimationController moveController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 150 * actualSteps),
+    );
+    
+    moveController.addListener(() {
+      int newPos = startPos - (moveController.value * actualSteps).floor();
+      if (newPos != token.position && newPos >= endPos) {
+        setState(() {
+          token.position = newPos;
+        });
+      }
     });
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (mounted) _animateTokenReverse(token, steps - 1, onComplete);
+    
+    moveController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        moveController.dispose();
+        if (token.position != endPos) {
+          setState(() {
+            token.position = endPos;
+          });
+        }
+        onComplete();
+      }
     });
+    
+    moveController.forward();
   }
 
   LudoToken? _checkCapture(LudoToken movedToken) {
@@ -751,7 +827,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
     // Settings Button
     Widget settingsButton = IconButton(
-      icon: const Icon(Icons.settings, color: Colors.white70, size: 24),
+      icon: const Icon(Icons.settings, color: Colors.white70, size: 28),
       onPressed: () async {
         final result = await showDialog(
           context: context,
@@ -780,8 +856,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           });
         }
       },
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(),
     );
 
     // Avatar section
@@ -817,21 +891,23 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     Widget finalCorner = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: left ? CrossAxisAlignment.start : CrossAxisAlignment.end,
-      children: [
-        diceRow,
-        const SizedBox(height: 4),
-        nameBox,
-        const SizedBox(height: 4),
-        avatarRow,
-      ],
+      children: isTopPlayer 
+        ? [
+            avatarRow,
+            const SizedBox(height: 4),
+            nameBox,
+            const SizedBox(height: 4),
+            diceRow,
+          ]
+        : [
+            diceRow,
+            const SizedBox(height: 4),
+            nameBox,
+            const SizedBox(height: 4),
+            avatarRow,
+          ],
     );
 
-    if (isTopPlayer) {
-      return RotatedBox(
-        quarterTurns: 2,
-        child: finalCorner,
-      );
-    }
     return finalCorner;
   }
 }

@@ -14,12 +14,13 @@ Ludo With Friends is a cross-platform digital implementation of the classic boar
 ## Features
 
 - **Local Multiplayer (2–4 players)** — All players share the same device in a pass-and-play style.
-- **Bot AI Opponents** — Three difficulty levels (Easy, Medium, Hard) and four personality archetypes (Aggressive, Defensive, Runner, Balanced).
+- **Bot AI Opponents** — A deterministic move evaluation engine with capture prioritization, danger avoidance, and leader targeting.
 - **Player Customization** — Customizable player name, token color (with a full color picker), and token shape (6 shapes: Pawn, Sphere, Crown, Map Pin, Star, Gem).
 - **3D Animated Dice** — A CSS 3D-transformed cube with face rotations and a hopping animation during rolling.
 - **Animated Token Movement** — Tokens hop between cells during normal movement and fly across the board during long-distance moves (deployment, capture returns).
 - **Sound Effects** — Audio feedback for dice rolls, token movement, captures, and victories. Each player can choose from 3 sound variants per event.
-- **Auto-Play Modes** — Per-player toggles for Auto Roll (dice rolls automatically), Auto Move (best move selected by AI), and Full Bot Mode (fully automated bot player).
+- **Auto-Play Modes** — Per-player toggles for Auto Roll, Auto Move, and Full Bot Mode (fully automated bot player).  
+- **Rubber-Banding & Kill Rig** — Catch-up mechanics boost dice rolls for losing players, and a Kill Rig system adds unpredictability to captures (38% success rate when a capture is possible).
 - **Ranking System** — Tracks finish order (1st–4th) with medal icons and a final game-over dialog.
 - **Dev Test Mode** — A developer mode accessible from the home screen that provides manual dice input and token position editing for testing.
 - **Web PWA Support** — Installable as a Progressive Web App with native splash screen and standalone display mode.
@@ -281,152 +282,111 @@ Static coordinate system for the Ludo board. Not a state container despite the n
 - `getCoordinate(playerIndex, position)` — Converts player-relative position to grid coordinate
 - `getExactCoordinate(playerIndex, position, tokenId)` — Returns precise pixel-level offset within a cell (used for the 4-token home base layout)
 
-### Bot AI — Decision Engine (`lib/utils/bot_ai.dart`)
+### Bot AI (`lib/utils/bot_ai.dart`)
 
-The Bot AI is a stateless, scoring-based move evaluation engine. It does not use machine learning; instead, it simulates each valid move, computes a weighted score across multiple strategic dimensions, and selects the token with the highest score. The engine is invoked via `BotAI.getBestMove()`.
+A stateless move evaluation engine. For each of the bot's tokens, it computes an integer score by simulating the move and evaluating multiple factors. The token with the highest score is selected.
 
 #### Architecture
 
 ```
-getBestMove(playerId, diceValue, playerTokens, config)
+BotAI.getBestMove(playerId, diceValue, playerTokens)
   │
-  ├─ 1. Score all players (for leader detection)
-  │     └─ playerScores[pId] = sum of positions (1000 per finished token)
+  ├─ 1. Compute scores for all players (leader/loser detection)
+  │     └─ leader = highest score, loser = lowest score
   │
-  ├─ 2. Apply personality multipliers
-  │     └─ captureMult, safetyMult, progressMult, deployMult
+  ├─ 2. For each of my tokens:
+  │     ├─ Skip if finished or stuck at home (dice ≠ 6)
+  │     ├─ Skip if move overshoots position 56
+  │     └─ Call _evaluateMove(token, ...) → integer score
   │
-  ├─ 3. For each of my tokens with a valid move:
-  │     ├─ Filter: token not finished
-  │     ├─ Filter: (if home) dice == 6
-  │     ├─ Filter: (if on path) position + dice <= 56
-  │     └─ Evaluate move → score
-  │
-  ├─ 4. Add difficulty-based noise (unpredictability)
-  │     └─ Easy: ±500 | Medium: ±100 | Hard: ±5
-  │
-  └─ 5. Return token with highest score (or null if no valid move)
+  └─ 3. Return token with highest score (or null if none > -10000)
 ```
 
-#### Scoring Dimensions
+#### Scoring Rules
 
-Each of the following categories contributes to the final score. Multipliers from the bot's personality archetype are applied per-category.
+| Condition | Score | Description |
+|-----------|-------|-------------|
+| Token finished | `-10000` | Impossible move, never selected |
+| Token at home, dice ≠ 6 | `-10000` | Cannot leave base |
+| Move overshoots 56 | `-10000` | Invalid move |
+| **Token at home, dice = 6** | `+300` | Deploy a new token |
+| **Winning move** (target = 56) | `+10000` | Always take it |
+| **Base progression** | `+targetPos` | Raw advancement value |
+| **Home stretch entry** (51–55) | `+300` | Moving from outer path into the final lane |
+| **Danger escape** (currently threatened, target safe) | `+400` | Fleeing an opponent 1–6 cells behind |
+| **Danger entry** (safe now, target threatened) | `−300` | Moving into capture range |
+| **Danger to danger** | `−100` | From one threat to another |
+| **Safe spot landing** | `+200` | Reaching a star-marked or start-cell safe spot |
+| **Capture** (exactly 1 opponent on cell) | `600 + opponentProgress × 10` | Landing on an opponent's token |
+| — Leader bonus | `+500` if captured opponent is the current leader |
+| — Loser penalty | `−300` if captured opponent is in last place |
+| **Multiple opponents on cell** | `−800` | Landing on a blockade (dangerous) |
 
-| Dimension | Base Score | Description |
-|-----------|-----------|-------------|
-| **Winning Move** | `+100,000` | Any move that places a token on position 56 (highest priority, always taken). |
-| **Deployment** | `250 + modifiers` | Bringing a token from home (requires dice=6). Bonuses for few active tokens (+400), safe start cell (+100). Penalties for board crowding (-200) and endgame (-300). |
-| **Base Progression** | `position × 2` | Raw advancement value. Bonus `+300` when entering the home stretch (position 51+). |
-| **Home Stretch Entry** | `+300 × progressMult` | Moving from outer path (position <51) into the final 5-cell home lane. |
-| **Capture** | `500 + opponentProgress × 8` | Landing on an opponent (exactly 1 token, non-safe cell). Bonus `+300` if the captured opponent is the current leader. Penalty `-200` if capturer is near home (position ≥40). Endgame reduces capture weight by 70%. |
-| **Danger Escape** | `+400 + threats × 50` | Currently threatened (enemy ≤6 cells behind on a non-safe spot) and moving to a non-threatened cell. |
-| **Danger Entry** | `-300 - threats × 50` | Moving from a safe/non-threatened cell into a threatened cell. |
-| **Safe Spot Arrival** | `+200 × safetyMult` | Landing on a star-marked or start-cell safe spot. |
-| **Blockade Formation** | `+250 × safetyMult` | Landing on the same cell as a friendly token (forms a protective stack). |
-| **Endgame Safety** | `-800` penalty for moving into danger, `+400` for safe spots, `+200` extra progression | Only activates when 3+ of the bot's tokens have finished. |
-| **Opponent Blockade** | `-800 × safetyMult` | Landing on a cell occupied by 2+ opponent tokens (impossible in standard rules, heavy penalty as safeguard). |
+#### Danger Analysis
 
-#### Personality Archetypes
-
-Each archetype applies multipliers to the four strategic axes, biasing the bot's play style:
-
-| Archetype   | Capture (×) | Safety (×) | Progress (×) | Deploy (×) | Behavior Summary |
-|-------------|-------------|------------|--------------|------------|------------------|
-| **Aggressive** | 2.0 | 0.5 | 1.0 | 1.5 | Prioritizes captures and deploying tokens. Takes risks. |
-| **Defensive** | 0.7 | 2.0 | 0.8 | 0.5 | Prioritizes safety, avoids danger, less aggressive deployment. |
-| **Runner** | 0.5 | 0.8 | 2.0 | 0.7 | Focuses on advancing tokens toward home; avoids combat. |
-| **Balanced** | 1.2 | 1.2 | 1.2 | 1.0 | Moderate emphasis across all dimensions. |
-
-#### Difficulty Levels
-
-Difficulty is implemented by adding random noise to the final score, making suboptimal moves more likely:
-
-| Difficulty | Noise Range | Behavior |
-|------------|-------------|----------|
-| **Easy** | ±500 | Frequently makes poor moves. |
-| **Medium** | ±100 | Occasionally makes suboptimal moves. |
-| **Hard** | ±5 | Tiny tiebreaker only; effectively plays optimally. |
-
-All difficulty levels use the same underlying evaluation logic. The noise is applied to the final score before selection, not to the game state or board calculations.
-
-#### Global State Analysis
-
-Before evaluating individual moves, the AI computes a global snapshot:
-
-- **Leader detection**: Scores all players (finished tokens = +1000, active = position value). The leader is the player with the highest score.
-- **Game phase detection**: Counts active tokens (on board, not finished). Enters **endgame mode** when 3+ of the bot's own tokens are finished.
-- **Danger analysis**: For each opponent token within 6 cells behind the bot's token on the global 52-cell path (and not on a safe spot), the token is flagged as threatened.
-
-#### Threat Model (Danger Analysis)
-
-The danger analysis converts player-relative positions to a shared 52-cell global path:
+Converts player-relative positions to a shared 52-cell global path:
 
 ```
 globalIndex = (playerRelativePosition + playerId × 13) % 52
 ```
 
-A token is "threatened" if an opponent's global index is 1–6 cells behind it and the token is not on a safe spot. The analysis distinguishes between:
-- **Currently threatened** → an opponent can capture the token on their next turn
-- **Target threatened** → the destination cell is within capture range of an opponent
-- **Both threatened** → the token is escaping one danger but moving into another
+A token is considered **threatened** if an opponent's global index is 1–6 cells behind it and the token is not on a safe spot. The AI checks both the current position and the target position separately.
 
 #### Limitations
 
-- No lookahead: only evaluates the immediate next move. Does not simulate opponent responses.
-- No probabilistic reasoning: does not factor the probability of rolling specific values on future turns.
-- No learning: the bot plays identically given the same board state and seed.
+- No lookahead — evaluates only the immediate next move
+- No difficulty levels, no personality types, no configurability
+- No randomness or noise in decision-making (deterministic given the same board state)
 
-### SmartDice — Dice Roll Logic (`lib/utils/smart_dice.dart`)
+### SmartDice (`lib/utils/smart_dice.dart`)
 
-The dice system is intentionally designed to be fair for human players while providing a subtle assist to bot players to maintain game flow.
+The dice system uses rubber-banding (catch-up) mechanics and a "Kill Rig" that fudges rolls to influence captures. It is intentionally unfair to create dramatic moments and keep games close.
 
-#### Design Philosophy
-
-> "Top-tier AI relies on good decision making, not rigged dice." — Source comment, `smart_dice.dart:10`
-
-The system avoids the common anti-pattern of secretly biasing dice against human players. Instead:
-- **Human players**: Always receive a perfectly uniform random value 1–6 (~16.67% each).
-- **Bot players**: Receive uniform random values normally, **except** in one specific stuck-in-base scenario.
-
-#### Anti-Stuck Mechanic (Bots Only)
+#### Roll Pipeline
 
 ```
-IF bot has 0 active tokens on the board
-AND bot has at least 1 token still in home base:
-    → Roll 6 with 25% probability (boosted from ~16.67%)
-    → Otherwise roll 1–5 with uniform probability (15% each)
-ELSE:
-    → Standard uniform roll 1–6
-```
-
-This applies only when a bot is fully trapped in its home base with no tokens deployed. The boost from ~1/6 to 1/4 prevents games from stalling indefinitely while still being weak enough that the bot must rely on strategy once on the board.
-
-#### Integration with Turn Flow
-
-```
-GameScreen._rollDice()
+SmartDice.roll(playerId, playerTokens, {isBot})
   │
-  ├─ Dev Mode ON → show manual dialog, skip SmartDice
+  └─ 1. _determineBaseRoll() — Rubber-banding + assistance
+  │      └─ Returns a biased base dice value
   │
-  └─ Normal mode:
-       ├─ Play dice sound via AudioManager
-       ├─ Set isDiceRolling = true (triggers 3D dice animation)
-       ├─ Wait 500ms (animation plays)
-       ├─ Call SmartDice.roll(playerId, playerTokens, isBot: ...)
-       └─ Set hasRolledDice = true, check valid moves
+  └─ 2. _applyKillRig() — Capture interference
+         └─ May modify the base roll before returning
 ```
+
+#### Rubber-Banding (`_determineBaseRoll`)
+
+Adjusts dice odds based on the player's standing:
+
+| Scenario | Mechanic | Probability |
+|----------|----------|-------------|
+| **Losing, stuck** (zero active tokens) | Boosted chance of 6 | 35% |
+| **Losing, tokens in home** | Boosted chance of 6 | 25% |
+| **Losing, can capture** | Exact roll for capture distance | 40% (vs leader), 25% (vs others) |
+| **Winning, stuck** (zero active tokens) | Reduced chance of 6 | 20% (penalized) |
+| **Mid-field, stuck** (zero active tokens) | Boosted chance of 6 | 28% |
+| **Mid-field, tokens in home** | Mild boost to 6 | 20% |
+| **Finish line assist** (token at 51–55) | Exact roll for remaining distance | 25% (losing), 15% (mid), 10% (winning) |
+| **Default** | Uniform random 1–6 | ~16.67% each |
+
+All players (human and bot) are subject to these same rubber-banding rules.
+
+#### Kill Rig (`_applyKillRig`)
+
+When a player's roll would result in capturing an opponent's token (exactly 1 opponent on the target cell, not a safe spot), the Kill Rig intervenes:
+
+```
+IF intended roll would capture:
+    38% → ALLOW the capture (return intended roll)
+    42% → MODIFY roll by ±1 or ±2 (may still capture or may miss)
+    20% → COMPLETELY RANDOM (replace with uniform 1–6)
+```
+
+This means captures are **not guaranteed** even when the dice and board position align — there is always a 62% chance the dice is fudged to prevent or alter the capture.
 
 #### Error Handling
 
-If `SmartDice.roll()` throws an exception for any reason, GameScreen catches it and defaults the dice value to 1 as a fallback.
-
-#### Fairness Guarantee
-
-The dice system does not:
-- Track history or apply "balancing" (e.g., streak compensation)
-- Penalize human players by giving them lower rolls
-- Favor any specific player based on game state (except the single bot anti-stuck case)
-- Use any form of seeded/predetermined roll sequences
+If `SmartDice.roll()` throws an exception, `GameScreen` catches it and defaults the dice value to 1.
 
 ### AudioManager (`lib/utils/audio_manager.dart`)
 
@@ -483,14 +443,14 @@ The following local APIs (Dart interfaces) are used:
 - **Error handling**: All methods silently catch and discard exceptions
 
 ### BotAI (`lib/utils/bot_ai.dart`)
-- **`getBestMove(playerId, diceValue, playerTokens, {BotConfig config})`** — Evaluates all valid moves using a multidimensional scoring function weighted by personality archetype, and returns the best `LudoToken` to move, or `null` if no valid move exists
-- **Input**: Current player ID, dice value, map of all players' tokens, optional `BotConfig` (difficulty + personality)
+- **`getBestMove(playerId, diceValue, playerTokens)`** — Iterates over all valid tokens, evaluates each possible move using integer scoring, and returns the `LudoToken` with the highest score, or `null` if none
+- **Input**: Current player ID, dice value, map of all players' tokens
 - **Output**: A single `LudoToken` instance, or `null`
 - **Error handling**: Caller in GameScreen catches exceptions and falls back to first valid move in `movableTokenIds`
 
 ### SmartDice (`lib/utils/smart_dice.dart`)
-- **`roll(int playerId, Map<int, List<LudoToken>> playerTokens, {bool isBot})`** — Returns a uniformly random dice value 1–6. For bot players only, applies a subtle anti-stuck mechanic: if the bot has zero active tokens and at least one token in home base, the probability of rolling a 6 is boosted from ~16.67% to 25%.
-- **Input**: Player ID requesting the roll, map of all tokens, bot flag
+- **`roll(playerId, playerTokens, {isBot})`** — Returns a biased dice value 1–6 using rubber-banding (catch-up mechanics), exact-roll assistance for captures and finish-line scenarios, and a Kill Rig that adds unpredictability when a capture would occur
+- **Input**: Player ID requesting the roll, map of all tokens, bot flag (has no behavioral effect — all players share the same rules)
 - **Output**: Integer 1–6
 - **Error handling**: Caller catches exceptions and defaults to 1
 

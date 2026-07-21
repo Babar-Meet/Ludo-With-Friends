@@ -7,25 +7,25 @@
 
 ## Purpose
 
-Ludo With Friends is a cross-platform digital implementation of the classic board game Ludo. It provides local multiplayer gameplay for 2–4 players on a single device, with optional AI opponents at configurable difficulty levels. The project is intended for casual local multiplayer sessions and developer experimentation.
+A cross-platform digital Ludo board game for 2–4 players on a single device, with AI opponents, customizable tokens, and rubber-banding dice mechanics that favor dramatic captures and close finishes.
 
 ---
 
 ## Features
 
-- **Local Multiplayer (2–4 players)** — All players share the same device in a pass-and-play style.
-- **Bot AI Opponents** — A deterministic move evaluation engine with capture prioritization, danger avoidance, and leader targeting.
-- **Player Customization** — Customizable player name, token color (with a full color picker), and token shape (6 shapes: Pawn, Sphere, Crown, Map Pin, Star, Gem).
-- **3D Animated Dice** — A CSS 3D-transformed cube with face rotations and a hopping animation during rolling.
-- **Animated Token Movement** — Tokens hop between cells during normal movement and fly across the board during long-distance moves (deployment, capture returns).
-- **Sound Effects** — Audio feedback for dice rolls, token movement, captures, and victories. Each player can choose from 3 sound variants per event.
-- **Auto-Play Modes** — Per-player toggles for Auto Roll, Auto Move, and Full Bot Mode (fully automated bot player).  
-- **Rubber-Banding & Kill Rig** — Catch-up mechanics boost dice rolls for losing players, and a Kill Rig system adds unpredictability to captures (38% success rate when a capture is possible).
-- **Ranking System** — Tracks finish order (1st–4th) with medal icons and a final game-over dialog.
-- **Dev Test Mode** — A developer mode accessible from the home screen that provides manual dice input and token position editing for testing.
-- **Web PWA Support** — Installable as a Progressive Web App with native splash screen and standalone display mode.
-- **Custom Splash Screen** — Native splash screen configured via `flutter_native_splash` with the app logo.
-- **Safe Spots & Capture Mechanics** — Implementation of standard Ludo rules: safe spots (starting cells and star-marked cells), opponent capture returns, and extra turn on rolling 6.
+- **Local Multiplayer (2–4 players)** — Pass-and-play on one device.
+- **Bot AI** — Deterministic move evaluator that prioritizes captures, targets the leader, avoids danger, and pushes for home stretch.
+- **Player Customization** — Custom name, token color (with full color picker), and 6 token shapes (Pawn, Rook, Crown, Map Pin, Star, Gem).
+- **3D Animated Dice** — CSS 3D-transformed cube with face rotation and hop animation.
+- **Animated Token Movement** — Hopping between adjacent cells, flying across the board for long-distance moves.
+- **Rubber-Banding Dice** — Losing players get boosted odds for 6s and capture rolls; winning players are mildly penalized.
+- **Kill Rig** — When a capture is possible, the dice is fudged: 38% allow, 42% modify by ±1/±2, 20% random.
+- **Finish Line Assist** — Small chance to roll the exact number needed when a token is in the home stretch.
+- **Sound Effects** — Per-player selectable sounds for dice, move, capture, and win events.
+- **Auto-Play Modes** — Per-player toggles for Auto Roll, Auto Move, and Full Bot Mode.
+- **Ranking System** — Finish order tracked 1st–4th with medal badges and game-over dialog.
+- **Dev Test Mode** — Manual dice input and token position editing for testing.
+- **Web PWA** — Installable with native splash, standalone display, portrait orientation.
 
 ---
 
@@ -34,18 +34,17 @@ Ludo With Friends is a cross-platform digital implementation of the classic boar
 | Category       | Technology                                    |
 | -------------- | --------------------------------------------- |
 | Language       | Dart 3.x                                      |
-| Framework      | Flutter (SDK constraint: `^3.11.3`)           |
-| UI Rendering   | CustomPaint / CustomPainter (board, dice, tokens), Material 3 |
-| State Management | StatefulWidget + setState (local state only) |
+| Framework      | Flutter (SDK `^3.11.3`)                       |
+| UI Rendering   | CustomPaint / CustomPainter, Material 3       |
+| State          | StatefulWidget + setState                     |
 | Audio          | `audioplayers` ^6.7.1                         |
 | Video          | `video_player` ^2.9.2                         |
 | Color Picker   | `flutter_colorpicker` ^1.1.0                  |
 | Splash Screen  | `flutter_native_splash` ^2.4.7                |
 | App Icons      | `flutter_launcher_icons` ^0.14.4              |
 | Linting        | `flutter_lints` ^6.0.0                        |
-| Testing        | `flutter_test` (bundled with Flutter SDK)     |
-| Build          | Flutter CLI (supports Android, iOS, Web, Windows, Linux, macOS) |
-| CI/CD          | None detected                                 |
+| Testing        | `flutter_test`                                 |
+| Build          | Flutter CLI (Android, iOS, Web, Windows, Linux, macOS) |
 
 ---
 
@@ -53,204 +52,105 @@ Ludo With Friends is a cross-platform digital implementation of the classic boar
 
 ```
 ludo_with_friends/
-├── android/                  # Android platform project
+├── android/
 ├── assets/
-│   ├── audio/                # WAV sound effects (dice, move, capture, win)
-│   ├── images/               # Logo, background, and token image assets
-│   └── meme/                 # Video file for the "Multiplayer" easter egg
-├── build/                    # Build output (generated, ignored)
-├── ios/                      # iOS platform project
-├── lib/                      # Main application source code
-│   ├── main.dart             # App entry point, MaterialApp configuration
+│   ├── audio/            # WAV sound files
+│   ├── images/           # Logo, background, token images
+│   └── meme/             # Easter egg video
+├── ios/
+├── lib/
+│   ├── main.dart         # Entry point, MaterialApp, error widget
 │   ├── models/
-│   │   ├── game_state.dart   # GameState (board path grid, coordinate system) and LudoToken
-│   │   └── player.dart       # Player data model (id, name, color, tokenIndex)
+│   │   ├── game_state.dart   # Board coordinate grid, path constants, safe spots, LudoToken
+│   │   └── player.dart       # Player data (id, name, color, tokenIndex)
 │   ├── screens/
-│   │   ├── splash_screen.dart   # 3-second logo splash screen
-│   │   ├── home_screen.dart     # Main menu with Play, Multiplayer, Dev Test buttons
-│   │   ├── game_screen.dart     # Core game logic, turn management, animation orchestration
-│   │   └── meme_screen.dart     # Easter egg screen (video playback, typing animation)
+│   │   ├── splash_screen.dart    # 3s logo splash → home
+│   │   ├── home_screen.dart      # Menu: Play, Multiplayer (easter egg), Dev Test
+│   │   ├── game_screen.dart      # Core game loop, turn management, animations, ranking
+│   │   └── meme_screen.dart      # Typing animation + cat video easter egg
 │   ├── utils/
-│   │   ├── audio_manager.dart   # Singleton audio player pool and playback helpers
-│   │   ├── bot_ai.dart          # Bot AI decision engine with configurable personality/difficulty
-│   │   └── smart_dice.dart      # Dice roll logic with anti-stuck mechanic for bots
+│   │   ├── audio_manager.dart    # Audio player pool for sound effects
+│   │   ├── bot_ai.dart           # Bot move evaluation engine
+│   │   └── smart_dice.dart       # Rubber-banding dice + Kill Rig
 │   └── widgets/
-│       ├── dice_widget.dart         # 3D animated dice cube widget
-│       ├── game_setup_dialog.dart   # Player configuration dialog (name, color, token shape, count)
-│       ├── hopping_token_widget.dart # Animated token widget with hop/fly transitions
-│       ├── ludo_board_widget.dart   # Board rendered with CustomPainter + token overlay
-│       ├── player_settings_dialog.dart  # Per-player settings (auto modes, bot mode, sounds)
-│       └── premium_token_widget.dart # Six token shapes drawn with CustomPainter
-├── linux/                    # Linux platform project
-├── macos/                    # macOS platform project
-├── test/                     # Widget tests
-│   ├── widget_test.dart          # Basic smoke test (outdated: references a counter widget)
-│   ├── game_screen_test.dart     # GameScreen render test
-│   └── game_screen_widget_test.dart # GameScreen layout + LudoBoardWidget render test
-├── web/                      # Web platform project with PWA manifest and splash images
-├── windows/                  # Windows platform project
-├── .env                      # Android release signing configuration (KEYSTORE_PATH, passwords)
+│       ├── dice_widget.dart          # 3D animated dice cube
+│       ├── game_setup_dialog.dart    # Pre-game player configuration
+│       ├── hopping_token_widget.dart # Animated token hop/fly
+│       ├── ludo_board_widget.dart    # Board CustomPainter + token overlay
+│       ├── player_settings_dialog.dart # In-game settings per player
+│       └── premium_token_widget.dart # 6 token shape renderers
+├── linux/
+├── macos/
+├── test/
+│   ├── widget_test.dart              # Outdated smoke test
+│   ├── game_screen_test.dart         # Render test
+│   └── game_screen_widget_test.dart  # Layout test
+├── web/
+├── windows/
+├── .env                    # Android signing config (gitignored)
 ├── .gitignore
-├── analysis_options.yaml     # Dart linter configuration (flutter_lints defaults)
-├── bugs-and-improvements.md  # Known bugs and requested improvements
-├── LICENSE                   # All rights reserved license
-├── PUBLISH-GUIDE.md          # Guide for building and publishing to Google Play Store
-├── pubspec.lock              # Dependency lockfile
-├── pubspec.yaml              # Project manifest, dependencies, asset declarations
-└── README.md                 # This file
+├── analysis_options.yaml   # flutter_lints defaults
+├── bugs-and-improvements.md
+├── LICENSE
+├── pubspec.lock
+├── pubspec.yaml            # Manifest, dependencies, assets, splash/icons config
+└── README.md
 ```
-
-### Important Directories and Files
-
-- **`lib/main.dart`** — App entry point. Configures a custom `ErrorWidget` that displays exception details inline (useful for debugging on mobile). Creates a `MaterialApp` with Material 3 theming and routes to `HomeScreen`.
-
-- **`lib/models/game_state.dart`** — Defines the board's coordinate system. `GameState` contains static constants for the 52-cell global path, 4 home paths (5 cells each), and safe spots. The `getCoordinate()` and `getExactCoordinate()` methods translate player-relative positions into 15x15 grid offsets. `LudoToken` tracks each token's id, playerId, and position (-1 = home, 0..55 = path, 56 = finished).
-
-- **`lib/models/player.dart`** — Simple data class holding `id` (0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right), `name`, `color`, and `tokenIndex` (selects one of 6 token shapes).
-
-- **`lib/screens/game_screen.dart`** — The largest file (~913 lines). Manages all game state as a `StatefulWidget` with `TickerProviderStateMixin`. Handles turn cycling, dice rolling (with dev mode override), valid move checking, token animation orchestration, capture detection, win condition checking, ranking, and the player corner UI with dice/rank badges, name labels, and settings buttons.
-
-- **`lib/utils/bot_ai.dart`** — A stateless AI decision engine with `BotDifficulty` (easy/medium/hard) and `BotPersonality` (aggressive/defensive/runner/balanced). Evaluates each valid move across multiple weighted criteria: capture value, safety/danger analysis, progression, deployment urgency, endgame behavior, blockade formation, and opponent leader targeting. Adds slight randomness at lower difficulties.
-
-- **`lib/utils/smart_dice.dart`** — Provides fair dice rolls (uniform 1–6). For bot players only, applies a subtle anti-stuck mechanic: if a bot has zero active tokens on the board and tokens remaining in base, the chance of rolling a 6 is boosted from ~16.7% to 25%.
-
-- **`lib/widgets/ludo_board_widget.dart`** — Renders the 15×15 Ludo board using `CustomPainter` (`LudoBoardPainter`). Draws colored home bases with token slots, colored path arms, grid lines, star markers at safe spots, center triangles, and opening gradients. Token overlays are positioned via a `Stack` with `HoppingTokenWidget`. Includes `_MovableTokenWrapper` for the pulsing glow effect on valid-move tokens.
-
-- **`lib/widgets/dice_widget.dart`** — A 3D dice cube implemented with six `_FaceDef` faces positioned in 3D space using `Matrix4` transformations. During rolling, the cube rotates and hops with a dynamic shadow. Uses `_DicePainter` `CustomPainter` to render dot patterns for values 1–6.
-
-- **`lib/widgets/premium_token_widget.dart`** — Draws six distinct token shapes (Pawn, Rook, Crown, Pin, Star, Gem) using `CustomPainter` with gradient fills, specular highlights, shadows, and glossy effects. Each shape has its own `_drawGlossy*` method.
-
-- **`lib/screens/meme_screen.dart`** — An easter egg triggered by the "MULTIPLAYER" button. Displays a typing animation ("You have no friends to play with 😢") followed by a looping cat meme video. Not a real multiplayer implementation.
 
 ---
 
 ## Architecture
 
-The application follows a standard Flutter single-page architecture with no routing framework (uses `Navigator.push` directly). There is no backend, no database, no network layer, and no state management library.
+Single-page Flutter app with no backend, no database, and no external APIs. All game state lives in `_GameScreenState` and is mutated via `setState()`.
 
-### High-Level Design
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  main.dart (MaterialApp)                                    │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  Screens                                              │  │
-│  │  ┌───────────┐  ┌──────────┐  ┌───────────────────┐  │  │
-│  │  │ Splash    │→ │ Home     │→ │ Game              │  │  │
-│  │  │ Screen    │  │ Screen   │  │ Screen            │  │  │
-│  │  └───────────┘  └────┬─────┘  └───────────────────┘  │  │
-│  │                       │  (MULTIPLAYER button)          │  │
-│  │                       ↓                                │  │
-│  │                  ┌──────────┐                          │  │
-│  │                  │ Meme     │  (Easter egg, no         │  │
-│  │                  │ Screen   │   multiplayer logic)     │  │
-│  │                  └──────────┘                          │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                             │
-│  Core Game Library (lib/models, lib/utils)                   │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  GameState (board coordinates, path constants)        │  │
-│  │  LudoToken (token state)                              │  │
-│  │  Player (player data)                                 │  │
-│  │  BotAI (move evaluation engine)                       │  │
-│  │  SmartDice (dice roll logic)                          │  │
-│  │  AudioManager (sound playback)                        │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                                                             │
-│  Widgets                                                    │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │  LudoBoardWidget + LudoBoardPainter (board rendering) │  │
-│  │  DiceWidget (3D dice)                                 │  │
-│  │  PremiumTokenWidget (token shapes)                    │  │
-│  │  HoppingTokenWidget (animated movement)               │  │
-│  │  GameSetupDialog (pre-game configuration)             │  │
-│  │  PlayerSettingsDialog (in-game settings)              │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Request/Data Flow
+### Flow
 
 ```
-Player taps "PLAY WITH FRIEND"
-  → HomeScreen shows GameSetupDialog
-    → User configures players (name, color, token shape, count)
-    → Returns List<Player>
-  → HomeScreen navigates to GameScreen(activePlayers)
+SplashScreen (3s) → HomeScreen
+                       ├─ PLAY WITH FRIEND → GameSetupDialog → GameScreen
+                       ├─ MULTIPLAYER      → MemeScreen (easter egg)
+                       └─ DEV TEST MODE    → GameScreen (manual dice + position edit)
+```
 
-GameScreen lifecycle:
-  1. initState:
-     - Creates 4 LudoToken per player (position = -1/home)
-     - Initializes player settings (autoRoll, autoMove, botMode defaults)
-     - Checks for auto-roll on first turn
-  2. Turn loop:
-     a. _checkAutoRoll() → if auto-roll enabled, auto-calls _rollDice()
-     b. _rollDice():
-        - Dev mode: shows manual dice input dialog
-        - Normal: delays 500ms (dice animation), calls SmartDice.roll()
-        - Sets hasRolledDice=true, calls _checkValidMoves()
-     c. _checkValidMoves():
-        - Finds tokens that can legally move with current dice value
-        - If no valid moves → _nextTurn() after 1s delay
-        - If auto-move/bot → BotAI.getBestMove() → _handleTokenTap()
-        - If only 1 valid move → auto-move after 400ms
-     d. _handleTokenTap(token):
-        - Home + dice=6 → deploy to position 0
-        - On path → animate forward via _animateTokenForward()
-        - After move:
-          - If position=56 → check win condition
-          - If capture → send opponent home, extra turn
-          - If dice=6 → extra turn
-          - Otherwise → _nextTurn()
-     e. _nextTurn():
-        - Cycles to next unfinished player
-        - Calls _checkAutoRoll()
-  3. Win condition (_checkWinCondition):
-     - All 4 tokens at position 56 → assign rank, add to finishedPlayerIds
-     - Game ends when 1 player remains → show ranking dialog
+### Game Loop
+
+```
+1. _checkAutoRoll() → maybe roll
+2. _rollDice():
+     - Dev mode: manual dialog
+     - Normal: play sound, animate 500ms, SmartDice.roll()
+3. _checkValidMoves():
+     - Find tokens that can move with current dice
+     - No moves → _nextTurn() after 1s
+     - Auto/bot mode → BotAI.getBestMove() → _handleTokenTap()
+     - Single valid move → auto-move after 400ms
+4. _handleTokenTap(token):
+     - Deploy from home (dice=6) → position 0
+     - Move forward → _animateTokenForward()
+     - After move:
+       - position=56 → check win
+       - Capture detected → send opponent home, extra turn
+       - dice=6 → extra turn
+       - else → _nextTurn()
+5. _nextTurn():
+     - Cycle to next unfinished player
+     - _checkAutoRoll()
 ```
 
 ### Board Coordinate System
 
-```
-The board is a 15×15 grid. Each cell is addressed as (col, row) with (0,0) at top-left.
+15×15 grid. 52-cell shared global path. Each player starts 13 cells apart. Home stretch: 5 cells (51–55), position 56 = finished. Safe spots: 8 cells (4 starts + 4 stars).
 
-Global path: 52 sequential (col, row) offsets forming the outer track.
-Player 0 (Blue) starts at index 0, Player 1 (Red) at index 13, etc.
-Each player perceives position 0 as their own start cell.
+### State
 
-Home paths: Each player has 5 cells (positions 51–55) leading into the center.
-Position 56 = finished (home).
+All in `_GameScreenState` — `playerTokens`, `currentTurnPlayerId`, `diceValue`, `hasRolledDice`, `isDiceRolling`, `isAnimating`, `movableTokenIds`, automation flags, sound selections, `playerRankings`, `finishedPlayerIds`.
 
-Safe spots: 8 cells (4 start cells + 4 star-marked cells) where tokens cannot be captured.
-```
+### Animations
 
-### State Management
-
-All game state is managed via `setState()` calls within `_GameScreenState`. There is no external state management library, no `InheritedWidget`, no `Provider`, and no `Bloc`. The board widget receives state through constructor parameters and re-renders via Flutter's standard widget rebuild mechanism.
-
-Key state variables in `_GameScreenState`:
-
-| Variable               | Purpose                                   |
-| ---------------------- | ----------------------------------------- |
-| `playerTokens`         | Map<playerId, List<LudoToken>>            |
-| `currentTurnPlayerId`  | Whose turn it is                          |
-| `diceValue`            | Last rolled dice value (1–6)              |
-| `hasRolledDice`        | Whether dice has been rolled this turn     |
-| `isDiceRolling`        | Dice animation in progress                 |
-| `isAnimating`          | Token movement animation in progress       |
-| `movableTokenIds`      | Token IDs that can legally move            |
-| `playerAutoRoll/Move/BotMode` | Per-player automation flags          |
-| `playerDice/Move/Capture/WinSound` | Per-player sound selections        |
-| `playerRankings`       | Map<playerId, rank>                        |
-| `finishedPlayerIds`    | Ordered list of players who finished        |
-
-### Animation System
-
-- **Token hopping**: `HoppingTokenWidget` uses an `AnimationController` + `CurvedAnimation` (fastOutSlowIn) to interpolate between old and new positions. Movement distance determines duration (150ms per cell, min 400ms, max 2000ms). Tokens hop vertically (sine wave) and tilt slightly.
-- **Token flying**: Long-distance moves (deployment from home, capture return) trigger a faster spin + high hop with `sin(t * pi) * 120px` offset and rotation.
-- **Dice rolling**: A `Matrix4`-based 3D cube rotates and hops (24px) over 600ms with an easing curve. A shadow below the dice shrinks/grows with the hop.
-- **Movable indicator**: `_MovableTokenWrapper` pulses a white glow using a repeating `ScaleAnimation` (1.0 → 1.15).
+- **Token hop**: `HoppingTokenWidget` — sine-wave hop (35px), squash/stretch, directional tilt. Duration: 150ms per cell.
+- **Token fly**: Distance >1.5 cells → spin, 120px hop, scaled duration (clamped 400–2000ms).
+- **Dice**: `DiceWidget` — 3D Matrix4 cube rotating + hopping (24px) over 600ms with easing.
+- **Movable glow**: `_MovableTokenWrapper` — pulsing white glow + scale 1.0→1.15.
 
 ---
 
@@ -258,249 +158,182 @@ Key state variables in `_GameScreenState`:
 
 ### GameScreen (`lib/screens/game_screen.dart`)
 
-The central orchestrator. Responsibilities:
-- Initialize and manage per-player token state
-- Control the turn cycle (roll → move → next)
-- Coordinate dice rolling animation
-- Orchestrate token movement animations (forward and reverse)
-- Detect captures by comparing token coordinates against opponent positions
-- Detect win conditions and assign rankings
-- Render the full game layout: background overlay, player corners, board, dev mode FAB
-- Per-player automation settings (auto-roll, auto-move, bot mode, sound selections)
+Central orchestrator. Manages turn cycle, dice rolling, token movement animations, capture detection, win conditions, ranking, and the full game layout (player corners with dice/badges, board, settings buttons).
 
-**Inputs**: `List<Player>` from game setup, user taps on tokens/dice, automation flags
-**Outputs**: Mutated `playerTokens` state, navigation to home on game over
-**Dependencies**: `Player`, `GameState`/`LudoToken`, `BotAI`, `SmartDice`, `AudioManager`, `LudoBoardWidget`, `DiceWidget`, `PremiumTokenWidget`, `PlayerSettingsDialog`
+**Inputs**: `List<Player>` from setup dialog, user taps, automation flags  
+**Outputs**: Mutated token state, navigation to home on game over  
+**Dependencies**: All models, utils, and widgets
 
 ### GameState (`lib/models/game_state.dart`)
 
-Static coordinate system for the Ludo board. Not a state container despite the name.
+Static coordinate system:
 
-- `globalPath` — 52 `Offset` values mapping the outer track on a 15×15 grid
-- `homePaths` — 4 lists of 5 `Offset` values for each player's home stretch
-- `safeSpots` — 8 `Offset` values marking safe cells
-- `getCoordinate(playerIndex, position)` — Converts player-relative position to grid coordinate
-- `getExactCoordinate(playerIndex, position, tokenId)` — Returns precise pixel-level offset within a cell (used for the 4-token home base layout)
+- `globalPath` — 52 `Offset` values on a 15×15 grid  
+- `homePaths` — 4 lists of 5 `Offset` each (home stretch per player)  
+- `safeSpots` — 8 `Offset` values  
+- `getCoordinate(playerIndex, position)` — player-relative → grid coordinate  
+- `getExactCoordinate(playerIndex, position, tokenId)` — pixel-level offset within cell  
 
-### Bot AI (`lib/utils/bot_ai.dart`)
+`LudoToken`: `id`, `playerId`, `position` (-1 = home, 0–55 = path, 56 = finished), `isHome`, `isFinished`.
 
-A stateless move evaluation engine. For each of the bot's tokens, it computes an integer score by simulating the move and evaluating multiple factors. The token with the highest score is selected.
+### Player (`lib/models/player.dart`)
 
-#### Architecture
+Data class: `id` (0=BL, 1=TL, 2=TR, 3=BR), `name`, `color`, `tokenIndex` (0–5 maps to 6 shapes).
+
+### BotAI (`lib/utils/bot_ai.dart`)
+
+Deterministic integer-scoring engine. No difficulty levels, no personalities, no randomness.
 
 ```
 BotAI.getBestMove(playerId, diceValue, playerTokens)
   │
-  ├─ 1. Compute scores for all players (leader/loser detection)
-  │     └─ leader = highest score, loser = lowest score
+  ├─ Score all players → leader (highest), loser (lowest)
   │
-  ├─ 2. For each of my tokens:
-  │     ├─ Skip if finished or stuck at home (dice ≠ 6)
-  │     ├─ Skip if move overshoots position 56
-  │     └─ Call _evaluateMove(token, ...) → integer score
+  ├─ For each token:
+  │     Skip if finished, stuck at home without 6, or overshoots 56
+  │     Evaluate move → int score
   │
-  └─ 3. Return token with highest score (or null if none > -10000)
+  └─ Return highest-scoring token (or null)
 ```
 
-#### Scoring Rules
+**Scoring**:
 
-| Condition | Score | Description |
-|-----------|-------|-------------|
-| Token finished | `-10000` | Impossible move, never selected |
-| Token at home, dice ≠ 6 | `-10000` | Cannot leave base |
-| Move overshoots 56 | `-10000` | Invalid move |
-| **Token at home, dice = 6** | `+300` | Deploy a new token |
-| **Winning move** (target = 56) | `+10000` | Always take it |
-| **Base progression** | `+targetPos` | Raw advancement value |
-| **Home stretch entry** (51–55) | `+300` | Moving from outer path into the final lane |
-| **Danger escape** (currently threatened, target safe) | `+400` | Fleeing an opponent 1–6 cells behind |
-| **Danger entry** (safe now, target threatened) | `−300` | Moving into capture range |
-| **Danger to danger** | `−100` | From one threat to another |
-| **Safe spot landing** | `+200` | Reaching a star-marked or start-cell safe spot |
-| **Capture** (exactly 1 opponent on cell) | `600 + opponentProgress × 10` | Landing on an opponent's token |
-| — Leader bonus | `+500` if captured opponent is the current leader |
-| — Loser penalty | `−300` if captured opponent is in last place |
-| **Multiple opponents on cell** | `−800` | Landing on a blockade (dangerous) |
+| Condition | Score |
+|-----------|-------|
+| Token at home, dice=6 | +300 |
+| Winning move (pos 56) | +10000 |
+| Base progression | +targetPos |
+| Home stretch entry | +300 |
+| Danger escape | +400 |
+| Danger entry | -300 |
+| Danger→danger | -100 |
+| Safe spot landing | +200 |
+| Capture (1 opponent) | 600 + opponentProgress×10 |
+| — Captured is leader | +500 |
+| — Captured is loser | -300 |
+| Multiple opponents | -800 |
 
-#### Danger Analysis
+**Danger**: An opponent within 1–6 cells behind on the global 52-cell path (non-safe spots).  
 
-Converts player-relative positions to a shared 52-cell global path:
-
-```
-globalIndex = (playerRelativePosition + playerId × 13) % 52
-```
-
-A token is considered **threatened** if an opponent's global index is 1–6 cells behind it and the token is not on a safe spot. The AI checks both the current position and the target position separately.
-
-#### Limitations
-
-- No lookahead — evaluates only the immediate next move
-- No difficulty levels, no personality types, no configurability
-- No randomness or noise in decision-making (deterministic given the same board state)
+**Capture**: Landing on exactly 1 opponent token on a non-safe cell sends opponent home and grants an extra turn.
 
 ### SmartDice (`lib/utils/smart_dice.dart`)
 
-The dice system uses rubber-banding (catch-up) mechanics and a "Kill Rig" that fudges rolls to influence captures. It is intentionally unfair to create dramatic moments and keep games close.
-
-#### Roll Pipeline
-
-```
-SmartDice.roll(playerId, playerTokens, {isBot})
-  │
-  └─ 1. _determineBaseRoll() — Rubber-banding + assistance
-  │      └─ Returns a biased base dice value
-  │
-  └─ 2. _applyKillRig() — Capture interference
-         └─ May modify the base roll before returning
-```
+Two-stage dice system — rubber-banding then Kill Rig.
 
 #### Rubber-Banding (`_determineBaseRoll`)
 
-Adjusts dice odds based on the player's standing:
+Adjusts odds based on player standing:
 
-| Scenario | Mechanic | Probability |
-|----------|----------|-------------|
-| **Losing, stuck** (zero active tokens) | Boosted chance of 6 | 35% |
-| **Losing, tokens in home** | Boosted chance of 6 | 25% |
-| **Losing, can capture** | Exact roll for capture distance | 40% (vs leader), 25% (vs others) |
-| **Winning, stuck** (zero active tokens) | Reduced chance of 6 | 20% (penalized) |
-| **Mid-field, stuck** (zero active tokens) | Boosted chance of 6 | 28% |
-| **Mid-field, tokens in home** | Mild boost to 6 | 20% |
-| **Finish line assist** (token at 51–55) | Exact roll for remaining distance | 25% (losing), 15% (mid), 10% (winning) |
-| **Default** | Uniform random 1–6 | ~16.67% each |
-
-All players (human and bot) are subject to these same rubber-banding rules.
+| Situation | Effect | Odds |
+|-----------|--------|------|
+| Losing, stuck in base | Boosted 6 | 35% |
+| Losing, tokens in home | Boosted 6 | 25% |
+| Losing, can capture | Exact roll for capture distance | 40% (vs leader), 25% (vs others) |
+| Winning, stuck in base | Penalized 6 | 20% |
+| Mid-field, stuck | Boosted 6 | 28% |
+| Mid-field, tokens in home | Mild 6 boost | 20% |
+| Token in home stretch | Exact roll for remaining distance | 25% (losing), 15% (mid), 10% (winning) |
+| Default | Uniform 1–6 | ~16.67% each |
 
 #### Kill Rig (`_applyKillRig`)
 
-When a player's roll would result in capturing an opponent's token (exactly 1 opponent on the target cell, not a safe spot), the Kill Rig intervenes:
+When the base roll would land on exactly 1 opponent (non-safe cell):
 
 ```
-IF intended roll would capture:
-    38% → ALLOW the capture (return intended roll)
-    42% → MODIFY roll by ±1 or ±2 (may still capture or may miss)
-    20% → COMPLETELY RANDOM (replace with uniform 1–6)
+38% → ALLOW capture (return intended roll)
+42% → MODIFY by ±1 or ±2
+20% → COMPLETELY RANDOM 1–6
 ```
 
-This means captures are **not guaranteed** even when the dice and board position align — there is always a 62% chance the dice is fudged to prevent or alter the capture.
-
-#### Error Handling
-
-If `SmartDice.roll()` throws an exception, `GameScreen` catches it and defaults the dice value to 1.
+All players share the same rules (human and bot).
 
 ### AudioManager (`lib/utils/audio_manager.dart`)
 
-Singleton-style class with static methods. Uses `audioplayers` `AssetSource`. Maintains a pool of 8 `AudioPlayer` instances for move sounds (prevents clipping on rapid sequential moves), plus one dedicated player each for dice, capture, and win sounds. All calls silently catch exceptions (audio files may be missing).
+Static methods. Pool of 8 `AudioPlayer` for moves, dedicated players for dice/capture/win. Silently catches exceptions.
 
 ### LudoBoardWidget (`lib/widgets/ludo_board_widget.dart`)
 
-Renders the 15×15 board with `LudoBoardPainter` (CustomPainter). Painting layers:
-1. Colored home stretch paths (4 arms)
-2. Start cells
-3. Center triangles (4 colored quadrants)
-4. Grid lines
-5. Star markers at safe spots
-6. Home bases (6×6 with 4 token slots, glossy borders, drop shadows)
-7. Opening gradients (entry points to home stretches)
+`CustomPainter` renders: colored paths, start cells, center triangles, grid lines, star markers, home bases with token slots, opening gradients. Token overlay via `Stack` with `HoppingTokenWidget`. Multiple tokens on same cell arranged in a circle. Home tokens positioned 2×2 grid.
 
-Token overlay: Computes `cellOccupancy` map to arrange multiple tokens sharing a cell in a circular pattern. Home tokens are positioned in a 2×2 grid within each home base.
+### DiceWidget (`lib/widgets/dice_widget.dart`)
 
-### PremiumTokenWidget (`lib/screens/premium_token_widget.dart`)
+3D cube with 6 faces in Matrix4 space. During roll: rotates + hops 24px + shadow scales. Pips drawn by `_DicePainter`.
 
-Six token shapes rendered via CustomPainter:
+### PremiumTokenWidget (`lib/widgets/premium_token_widget.dart`)
 
-| shapeType | Shape  |
-| --------- | ------ |
-| 0         | Pawn   |
-| 1         | Sphere (Rook) |
-| 2         | Crown  |
-| 3         | Map Pin |
-| 4         | Star   |
-| 5         | Gem (default fallback) |
-
-Each shape includes a shadow, base, body with gradient, and specular highlights.
+Six shapes: 0=Pawn, 1=Rook, 2=Crown, 3=Map Pin, 4=Star, 5=Gem. Each with shadow, gradient body, specular highlights.
 
 ### HoppingTokenWidget (`lib/widgets/hopping_token_widget.dart`)
 
-Wraps a `Positioned` token widget with animation. On position change:
-- Calculates distance in cells
-- If >1.5 cells → flying mode (spin, 120px hop, duration scaled)
-- If ≤1.5 cells → hopping mode (35px hop, slight squash/stretch, directional tilt)
+On position change: ≤1.5 cells = hop (35px + squash/stretch/tilt); >1.5 cells = fly (spin + 120px + scaled duration).
+
+### GameSetupDialog (`lib/widgets/game_setup_dialog.dart`)
+
+Configures 2–4 players: name, color (quick select or full picker), token shape (6 types). Maps 2nd player to top-right position in 2-player mode.
+
+### PlayerSettingsDialog (`lib/widgets/player_settings_dialog.dart`)
+
+Per-player toggles: Auto Roll, Auto Move, Full Bot Mode. Sound selectors for dice/move/capture/win with preview playback.
 
 ---
 
 ## APIs
 
-The project does not consume any external web APIs. All functionality is local.
+No external APIs. All interfaces are local Dart static methods.
 
-The following local APIs (Dart interfaces) are used:
+### AudioManager
+- `playMove({filename?})`, `playDice({filename?})`, `playCapture({filename?})`, `playWin({filename?})`
+- Errors silently caught.
 
-### AudioManager (static class)
-- **`playMove({filename?})`** — Plays a move sound from the player pool
-- **`playDice({filename?})`** — Plays a dice roll sound
-- **`playCapture({filename?})`** — Plays a capture sound
-- **`playWin({filename?})`** — Plays a victory sound
-- **Error handling**: All methods silently catch and discard exceptions
+### BotAI
+- `getBestMove(playerId, diceValue, playerTokens)` → `LudoToken?`
+- Caller catches exceptions, falls back to first valid move.
 
-### BotAI (`lib/utils/bot_ai.dart`)
-- **`getBestMove(playerId, diceValue, playerTokens)`** — Iterates over all valid tokens, evaluates each possible move using integer scoring, and returns the `LudoToken` with the highest score, or `null` if none
-- **Input**: Current player ID, dice value, map of all players' tokens
-- **Output**: A single `LudoToken` instance, or `null`
-- **Error handling**: Caller in GameScreen catches exceptions and falls back to first valid move in `movableTokenIds`
-
-### SmartDice (`lib/utils/smart_dice.dart`)
-- **`roll(playerId, playerTokens, {isBot})`** — Returns a biased dice value 1–6 using rubber-banding (catch-up mechanics), exact-roll assistance for captures and finish-line scenarios, and a Kill Rig that adds unpredictability when a capture would occur
-- **Input**: Player ID requesting the roll, map of all tokens, bot flag (has no behavioral effect — all players share the same rules)
-- **Output**: Integer 1–6
-- **Error handling**: Caller catches exceptions and defaults to 1
+### SmartDice
+- `roll(playerId, playerTokens, {isBot})` → `int` (1–6)
+- Caller catches exceptions, defaults to 1.
 
 ---
 
 ## Environment Variables
 
-| Variable             | Purpose                                |
-| -------------------- | -------------------------------------- |
-| `KEYSTORE_PATH`      | Path to the Android release keystore JKS file |
-| `KEYSTORE_PASSWORD`  | Password for the keystore              |
-| `KEY_ALIAS`          | Key alias name for signing             |
-| `KEY_PASSWORD`       | Password for the private key           |
+| Variable | Purpose |
+|----------|---------|
+| `KEYSTORE_PATH` | Path to Android release keystore JKS |
+| `KEYSTORE_PASSWORD` | Keystore password |
+| `KEY_ALIAS` | Signing key alias |
+| `KEY_PASSWORD` | Private key password |
 
-These are used only for Android release builds. The `.env` file is declared in `.gitignore` and must not be committed.
+Stored in `.env` (gitignored). Used only for Android release builds.
 
 ---
 
 ## Database
 
-Not applicable. The project has no database, no persistence layer, and no network storage. Game state exists only in memory during the application's lifecycle.
+Not applicable. No persistence. All state is in-memory.
 
 ---
 
 ## Configuration
 
 ### `pubspec.yaml`
-Project manifest. Key details:
-- **Name**: `ludo_with_friends`
-- **Publish**: `publish_to: 'none'` (private project)
-- **Version**: `1.0.0+1`
-- **SDK constraint**: `^3.11.3`
-- **Assets**: `assets/images/`, `assets/audio/`, `assets/meme/`
-- **Launcher icons**: Configured for Android and iOS with `assets/images/logo.png`
-- **Native splash**: Color `#003366` with logo image, configured for Android 12+
+- Version `1.0.0+1`, SDK `^3.11.3`, private (`publish_to: none`)
+- Assets: `assets/images/`, `assets/audio/`, `assets/meme/`
+- Launcher icons: `assets/images/logo.png` for Android + iOS
+- Native splash: color `#003366`, logo image, Android 12+ support
 
 ### `analysis_options.yaml`
-Dart linter configuration. Includes `package:flutter_lints/flutter.yaml` with no custom rules enabled or disabled beyond the defaults.
+`package:flutter_lints/flutter.yaml` defaults, no custom rules.
 
 ### `web/manifest.json`
-PWA manifest with `display: standalone`, portrait orientation, theme color `#003366`, and icon set for 192px and 512px (including maskable variants).
+PWA: standalone display, portrait, theme `#003366`, 192px + 512px icons (maskable variants).
 
 ### `web/index.html`
-Web entry point with splash screen markup, meta tags for mobile-web-app-capable, and responsive viewport configuration.
+Splash screen markup, responsive viewport, mobile-web-app-capable meta.
 
 ### `.env`
-Android release signing configuration template (see Environment Variables section).
-
-### `flutter_native_splash` + `flutter_launcher_icons`
-Both configured in `pubspec.yaml`. Splash uses color `#003366` with logo. Launcher icons use `assets/images/logo.png` for Android and iOS.
+Android signing template (see Environment Variables).
 
 ---
 
@@ -508,65 +341,30 @@ Both configured in `pubspec.yaml`. Splash uses color `#003366` with logo. Launch
 
 ### Production
 
-| Package                  | Version  | Purpose                                      |
-| ------------------------ | -------- | -------------------------------------------- |
-| `flutter`                | SDK      | UI framework                                 |
-| `cupertino_icons`        | ^1.0.8   | iOS-style icons (available but not heavily used) |
-| `flutter_colorpicker`    | ^1.1.0   | Full color picker for token color selection   |
-| `audioplayers`           | ^6.7.1   | Audio playback for sound effects              |
-| `video_player`           | ^2.9.2   | Video playback for the meme easter egg        |
-| `flutter_native_splash`  | ^2.4.7   | Native splash screen generation               |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `flutter` | SDK | UI framework |
+| `cupertino_icons` | ^1.0.8 | iOS icons |
+| `flutter_colorpicker` | ^1.1.0 | Color picker |
+| `audioplayers` | ^6.7.1 | Audio playback |
+| `video_player` | ^2.9.2 | Meme video |
+| `flutter_native_splash` | ^2.4.7 | Native splash |
 
-### Development
+### Dev
 
-| Package                  | Version  | Purpose                                      |
-| ------------------------ | -------- | -------------------------------------------- |
-| `flutter_test`           | SDK      | Widget and unit testing                       |
-| `flutter_lints`          | ^6.0.0   | Recommended lint rules                        |
-| `flutter_launcher_icons` | ^0.14.4  | App icon generation for Android and iOS       |
-
-### Internal Module Dependencies
-
-```
-GameScreen
-  ├── BotAI (move decisions for auto/bot players)
-  ├── SmartDice (dice roll values)
-  ├── AudioManager (sound effects)
-  ├── GameState (coordinate lookup)
-  ├── Player (player data)
-  ├── LudoBoardWidget (board rendering)
-  ├── DiceWidget (dice display)
-  ├── PremiumTokenWidget (token rendering)
-  ├── HoppingTokenWidget (token animation)
-  └── PlayerSettingsDialog (per-player settings)
-
-GameSetupDialog
-  ├── Player (data model for result)
-  └── PremiumTokenWidget (token previews)
-
-LudoBoardWidget
-  ├── GameState (coordinate lookup)
-  ├── PremiumTokenWidget (token rendering)
-  └── HoppingTokenWidget (token animation)
-```
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `flutter_test` | SDK | Testing |
+| `flutter_lints` | ^6.0.0 | Lint rules |
+| `flutter_launcher_icons` | ^0.14.4 | App icons |
 
 ---
 
 ## Installation
 
-### Prerequisites
-
-- Flutter SDK ^3.11.3 (Dart ^3.11.3)
-- A configured development environment for your target platform(s)
-
-### Setup
-
 ```bash
-# Clone the repository
 git clone <repository-url>
 cd ludo_with_friends
-
-# Get dependencies
 flutter pub get
 ```
 
@@ -575,67 +373,27 @@ flutter pub get
 ## Running
 
 ```bash
-# Run in debug mode (select a device/emulator first)
-flutter run
-
-# Run on a specific platform
-flutter run -d chrome      # Web
-flutter run -d android     # Android
-flutter run -d windows     # Windows
-flutter run -d ios         # iOS (macOS only)
-
-# Build for production
+flutter run                         # Debug on any device
+flutter run -d chrome               # Web
 flutter build appbundle --release   # Android AAB
 flutter build apk --release         # Android APK
-flutter build ios --release         # iOS (macOS only)
 flutter build web --release         # Web
-flutter build windows --release     # Windows
-
-# Run tests
-flutter test
-
-# Analyze code
-flutter analyze
-
-# Format code
-dart format .
+flutter test                        # Run tests
+flutter analyze                     # Lint
+dart format .                       # Format
 ```
 
 ---
 
 ## How It Works
 
-1. **Launch** — The app shows a 3-second splash screen with the logo, then navigates to the home screen.
-
-2. **Home Screen** — Displays a full-bleed background image with three options:
-   - **PLAY WITH FRIEND**: Opens the game setup dialog where 2–4 players configure their names, token colors, and token shapes.
-   - **MULTIPLAYER**: An easter egg that displays a typing animation ("You have no friends") followed by a looping cat meme video.
-   - **DEV TEST MODE**: Launches a 4-player game with manual dice input and token position editing capabilities.
-
-3. **Game Setup** — The `GameSetupDialog` allows selecting player count (2–4), custom names, token colors (quick-select or full picker), and one of six token shapes. In 2-player mode, the second player is placed at the top-right position.
-
-4. **Game Loop** — Players take turns in order. On each turn:
-   - The dice widget shows an animated arrow pointing at the active player's dice.
-   - The active player rolls (automatically or by tapping).
-   - Valid moves are highlighted with a pulsing white glow.
-   - The player taps a token, which animates to its new position.
-   - Rolling a 6 grants an extra turn.
-   - Landing on an opponent (non-safe spot) sends that opponent's token home and grants an extra turn.
-   - Safe spots (start cells and star-marked cells) protect tokens from capture.
-
-5. **Winning** — When all 4 tokens of a player reach home (position 56), they are assigned a rank. A toast announces the finish. Play continues for remaining players. When only one player remains unfinished, the final ranking dialog appears showing 1st–4th places.
-
-6. **Settings** — Each player has an in-game settings dialog accessible via a gear icon. Options include Auto Roll, Auto Move, Full Bot Mode, and per-event sound selection (3 variants each for dice, move, capture, win).
-
----
-
-## Known Issues
-
-See `bugs-and-improvements.md` for the complete list. Notable issues at time of generation:
-
-- Dice rendering shows transparency quirks on web
-- Token tap registration requires multiple attempts (hit area may be too small)
-- The `widget_test.dart` smoke test references a counter widget that does not exist in the current codebase
+1. **Launch** → 3s splash with logo → home screen with three buttons.
+2. **Play** → setup dialog (name, color, token shape, 2–4 players) → game screen.
+3. **Turn** → dice rolls (tapping or auto), valid moves highlighted with glow, tap token to move. Rolling 6 or capturing gives extra turn. Bots auto-play via BotAI.
+4. **Capture** → landing on an opponent (non-safe cell) sends them home. Kill Rig may fudge the dice to interfere.
+5. **Rubber-Banding** → losing players get better dice odds, winners get penalized slightly.
+6. **Win** → all 4 tokens home → rank assigned → toast shown. Last player standing triggers final ranking dialog.
+7. **MULTIPLAYER button** → typing animation + cat meme video (easter egg, not real multiplayer).
 
 ---
 
